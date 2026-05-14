@@ -1,3 +1,5 @@
+.git — копия
+
 .idea
 
 ### Terraform template
@@ -7,6 +9,9 @@
 # .tfstate files
 *.tfstate
 *.tfstate.*
+
+terraform/.terraform.lock.hcl
+terraform/.helm
 
 # Crash log files
 crash.log

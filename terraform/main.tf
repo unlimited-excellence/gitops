@@ -123,54 +123,41 @@ resource "helm_release" "argocd" {
   }
 
   set {
-    name  = "server.additionalApplications[0].name"
-    value = "root-app"
-  }
-
-  set {
-    name  = "server.additionalApplications[0].namespace"
-    value = "argocd"
-  }
-
-  set {
-    name  = "server.additionalApplications[0].spec.project"
-    value = "default"
-  }
-
-  set {
-    name  = "server.additionalApplications[0].spec.source.repoURL"
-    value = "https://github.com/unlimited-excellence/gitops.git"
-  }
-
-  set {
-    name  = "server.additionalApplications[0].spec.source.path"
-    value = "manifests"
-  }
-
-  set {
-    name  = "server.additionalApplications[0].spec.source.targetRevision"
-    value = "HEAD"
-  }
-
-  set {
-    name  = "server.additionalApplications[0].spec.destination.server"
-    value = "https://kubernetes.default.svc"
-  }
-
-  set {
-    name  = "server.additionalApplications[0].spec.destination.namespace"
-    value = "default"
-  }
-
-  set {
-    name  = "server.additionalApplications[0].spec.syncPolicy.automated.prune"
-    value = "true"
-  }
-
-  set {
-    name  = "server.additionalApplications[0].spec.syncPolicy.automated.selfHeal"
-    value = "true"
+    name  = "server.service.type"
+    value = "LoadBalancer"
   }
 
   depends_on = [google_container_cluster.autopilot]
+}
+
+# Root Application managed directly via Kubernetes Manifest
+resource "kubernetes_manifest" "root_app" {
+  manifest = {
+    apiVersion = "argoproj.io/v1alpha1"
+    kind       = "Application"
+    metadata = {
+      name      = "root-app"
+      namespace = "argocd"
+    }
+    spec = {
+      project = "default"
+      source = {
+        repoURL        = "https://github.com/unlimited-excellence/gitops.git"
+        path           = "manifests"
+        targetRevision = "HEAD"
+      }
+      destination = {
+        server    = "https://kubernetes.default.svc"
+        namespace = "default"
+      }
+      syncPolicy = {
+        automated = {
+          prune    = true
+          selfHeal = true
+        }
+      }
+    }
+  }
+
+  depends_on = [helm_release.argocd]
 }
