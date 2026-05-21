@@ -16,12 +16,24 @@ resource "google_project_service" "services" {
     "compute.googleapis.com",
     "container.googleapis.com",
     "cloudresourcemanager.googleapis.com",
-    "iam.googleapis.com"
+    "iam.googleapis.com",
+    "artifactregistry.googleapis.com"
   ])
   project = google_project.shared.project_id
   service = each.key
 
   disable_on_destroy = false
+}
+
+# Artifact Registry for Horse Backend
+resource "google_artifact_registry_repository" "horse_backend" {
+  project       = google_project.shared.project_id
+  location      = var.region
+  repository_id = "horse-backend"
+  description   = "Docker repository for horseproject backend"
+  format        = "DOCKER"
+
+  depends_on = [google_project_service.services]
 }
 
 # Network
