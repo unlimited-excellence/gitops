@@ -1,0 +1,134 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: horseproject
+  labels:
+    app: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: likespro/horse-backend:latest
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: horse-config
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: horse-config
+                  key: DB_PORT
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: horse-config
+                  key: DB_NAME
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: horse-config
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: horse-secret
+                  key: DB_PASSWORD
+            - name: ENV_TYPE
+              valueFrom:
+                configMapKeyRef:
+                  name: horse-config
+                  key: ENV_TYPE
+            - name: INITIAL_MINT_AMOUNT
+              valueFrom:
+                configMapKeyRef:
+                  name: horse-config
+                  key: INITIAL_MINT_AMOUNT
+            - name: SYSTEM_ESCROW_USER_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: horse-config
+                  key: SYSTEM_ESCROW_USER_ID
+            - name: CORS_ALLOW_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: horse-config
+                  key: CORS_ALLOW_ORIGINS
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            limits:
+              cpu: "1"
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+      initContainers:
+        - name: wait-for-db
+          image: busybox:1.36
+          command: ["sh", "-c", "until nc -z db 5432; do echo waiting for postgres; sleep 2; done"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: horseproject
+  labels:
+    app: backend
+  annotations:
+    # Enable Container-Native Load Balancing on GKE for direct pod traffic routing
+    cloud.google.com/neg: '{"ingress": true}'
+spec:
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+      name: http
+  selector:
+    app: backend
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: backend-ingress
+  namespace: horseproject
+  labels:
+    app: backend
+  annotations:
+    # Use standard GCP Application Load Balancer
+    kubernetes.io/ingress.class: "gce"
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
